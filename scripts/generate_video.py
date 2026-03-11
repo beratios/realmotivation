@@ -304,7 +304,8 @@ def compose_short(story: dict, script: dict, video_path: str, audio_path: str) -
     
     # ── 2. Load audio ─────────────────────────────────────────────────────────
     audio = AudioFileClip(audio_path)
-    target_duration = min(audio.duration + 2, MAX_DURATION)
+    target_duration = min(audio.duration, MAX_DURATION - 2)
+    safe_audio_duration = audio.duration - 0.1
     
     # ── 3. Load & crop video to 9:16 ──────────────────────────────────────────
     raw_clip = VideoFileClip(video_path)
@@ -388,7 +389,7 @@ def compose_short(story: dict, script: dict, video_path: str, audio_path: str) -
     
     # ── 9. Compose & export ───────────────────────────────────────────────────
     final = CompositeVideoClip(layers, size=(SHORT_WIDTH, SHORT_HEIGHT))
-    final = final.set_audio(audio.set_duration(target_duration))
+    final = final.set_audio(audio.subclip(0, safe_audio_duration))
     
     output_path = str(OUTPUT_DIR / f"short_{story['id']}_{int(time.time())}.mp4")
     
