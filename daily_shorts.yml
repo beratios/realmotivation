@@ -1,0 +1,84 @@
+name: 🎬 Daily YouTube Shorts Generator
+
+on:
+  schedule:
+    # All times in UTC. Toronto is ET = UTC-5 (winter) / UTC-4 (summer)
+    # Video 1: 08:00 ET → 13:00 UTC (winter) / 12:00 UTC (summer)
+    - cron: '0 13 * * *'   # 08:00 ET (winter) — Video 1
+    - cron: '0 23 * * *'   # 18:00 ET (winter) — Video 2
+    - cron: '0 1 * * *'    # 20:00 ET (winter) — Video 3
+
+  workflow_dispatch:
+    inputs:
+      video_slot:
+        description: 'Which video slot to generate (1, 2, or 3)'
+        required: false
+        default: '1'
+
+env:
+  PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+  YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+  YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+  YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+jobs:
+  generate-short:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Install system dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y \
+            ffmpeg \
+            fonts-dejavu-core \
+            imagemagick \
+            libmagickwand-dev
+
+      - name: 📦 Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🧠 Pre-download Whisper model (cached)
+        run: |
+          python -c "import whisper; whisper.load_model('base')"
+        env:
+          XDG_CACHE_HOME: /tmp/whisper-cache
+
+      - name: 🎬 Determine video slot
+        id: slot
+        run: |
+          HOUR=$(date -u +%H)
+          if [ "$HOUR" = "13" ]; then
+            echo "slot=1" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" = "23" ]; then
+            echo "slot=2" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" = "01" ]; then
+            echo "slot=3" >> $GITHUB_OUTPUT
+          else
+            echo "slot=${{ github.event.inputs.video_slot || '1' }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 Generate and upload video
+        run: |
+          python scripts/generate_single.py --slot ${{ steps.slot.outputs.slot }}
+
+      - name: 📊 Upload logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-logs-${{ github.run_id }}
+          path: /tmp/realmotivation/*.json
+          retention-days: 7
