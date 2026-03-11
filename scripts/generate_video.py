@@ -29,6 +29,10 @@ from moviepy.editor import (
 from moviepy.video.fx.all import resize
 import anthropic
 import whisper
+from PIL import Image
+if not hasattr(Image, "ANTIALIAS"):
+    Image.ANTIALIAS = Image.LANCZOS
+import whisper
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
