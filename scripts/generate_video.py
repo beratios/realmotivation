@@ -30,9 +30,10 @@ from moviepy.video.fx.all import resize
 import anthropic
 import whisper
 from PIL import Image
-if not hasattr(Image, "ANTIALIAS"):
+
+# Fix for Pillow >= 10.0.0 which removed ANTIALIAS (moviepy 1.0.3 compatibility)
+if not hasattr(Image, 'ANTIALIAS'):
     Image.ANTIALIAS = Image.LANCZOS
-import whisper
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ YOUTUBE_CLIENT_ID   = os.environ["YOUTUBE_CLIENT_ID"]
 YOUTUBE_CLIENT_SECRET = os.environ["YOUTUBE_CLIENT_SECRET"]
 YOUTUBE_REFRESH_TOKEN = os.environ["YOUTUBE_REFRESH_TOKEN"]
 ANTHROPIC_API_KEY   = os.environ["ANTHROPIC_API_KEY"]
+ELEVENLABS_API_KEY  = os.environ.get("ELEVENLABS_API_KEY", "")
 
 STORIES_FILE        = Path(__file__).parent.parent / "content" / "stories.json"
 OUTPUT_DIR          = Path("/tmp/realmotivation")
@@ -164,10 +166,42 @@ def fetch_pexels_video(query: str, min_duration: int = 15, max_duration: int = 6
 
 # ─── TTS GENERATOR ─────────────────────────────────────────────────────────────
 def generate_tts(text: str, output_path: str) -> str:
-    """Generate speech using Google TTS."""
+    """Generate speech using ElevenLabs (falls back to Google TTS if unavailable)."""
+    
+    # Try ElevenLabs first
+    if ELEVENLABS_API_KEY:
+        try:
+            logger.info("Generating TTS with ElevenLabs...")
+            voice_id = "pNInz6obpgDQGcFmaJgB"  # Adam - natural male voice
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+            headers = {
+                "xi-api-key": ELEVENLABS_API_KEY,
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "text": text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": {
+                    "stability": 0.4,
+                    "similarity_boost": 0.85,
+                    "style": 0.3,
+                    "use_speaker_boost": True,
+                }
+            }
+            resp = requests.post(url, json=payload, headers=headers, timeout=30)
+            resp.raise_for_status()
+            with open(output_path, "wb") as f:
+                f.write(resp.content)
+            logger.info(f"ElevenLabs TTS saved to {output_path}")
+            return output_path
+        except Exception as e:
+            logger.warning(f"ElevenLabs failed ({e}), falling back to Google TTS...")
+    
+    # Fallback: Google TTS
+    logger.info("Generating TTS with Google TTS...")
     tts = gTTS(text=text, lang='en', slow=False, tld='com')
     tts.save(output_path)
-    logger.info(f"TTS saved to {output_path}")
+    logger.info(f"Google TTS saved to {output_path}")
     return output_path
 
 # ─── WHISPER SUBTITLE GENERATOR ────────────────────────────────────────────────
@@ -305,6 +339,7 @@ def compose_short(story: dict, script: dict, video_path: str, audio_path: str) -
     # ── 2. Load audio ─────────────────────────────────────────────────────────
     audio = AudioFileClip(audio_path)
     target_duration = min(audio.duration, MAX_DURATION - 2)
+    # Keep audio strictly within its own duration to avoid seek errors
     safe_audio_duration = audio.duration - 0.1
     
     # ── 3. Load & crop video to 9:16 ──────────────────────────────────────────
