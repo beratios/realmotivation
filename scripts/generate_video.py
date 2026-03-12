@@ -172,7 +172,7 @@ def generate_tts(text: str, output_path: str) -> str:
     if ELEVENLABS_API_KEY:
         try:
             logger.info("Generating TTS with ElevenLabs...")
-            voice_id = "pNInz6obpgDQGcFmaJgB"  # Adam - deep motivational voice
+            voice_id = "goT3UYdM9bhm0n2lmKQx"  # Edward - British, Dark, Deep
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
             headers = {
                 "xi-api-key": ELEVENLABS_API_KEY,
@@ -180,7 +180,7 @@ def generate_tts(text: str, output_path: str) -> str:
             }
             payload = {
                 "text": text,
-                "model_id": "eleven_monolingual_v1",
+                "model_id": "eleven_multilingual_v2",
                 "voice_settings": {
                     "stability": 0.4,
                     "similarity_boost": 0.85,
