@@ -114,7 +114,7 @@ Rules:
 - Description must end with relevant hashtags"""
 
     message = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-sonnet-4-6",
         max_tokens=1000,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -180,7 +180,7 @@ def generate_tts(text: str, output_path: str) -> str:
             }
             payload = {
                 "text": text,
-                "model_id": "eleven_multilingual_v2",
+                "model_id": "eleven_turbo_v2",
                 "voice_settings": {
                     "stability": 0.4,
                     "similarity_boost": 0.85,
