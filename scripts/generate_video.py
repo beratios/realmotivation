@@ -172,7 +172,7 @@ def generate_tts(text: str, output_path: str) -> str:
     if ELEVENLABS_API_KEY:
         try:
             logger.info("Generating TTS with ElevenLabs...")
-            voice_id = "goT3UYdM9bhm0n2lmKQx"  # Custom selected voice
+            voice_id = "pNInz6obpgDQGcFmaJgB"  # Adam - deep motivational voice
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
             headers = {
                 "xi-api-key": ELEVENLABS_API_KEY,
