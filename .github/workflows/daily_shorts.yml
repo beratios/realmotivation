@@ -2,9 +2,10 @@ name: 🎬 Daily YouTube Shorts Generator
 
 on:
   schedule:
-    - cron: '0 13 * * *'
-    - cron: '0 23 * * *'
-    - cron: '0 1 * * *'
+    - cron: '0 13 * * *'   # 08:00 ET (winter) — Video 1
+    - cron: '0 23 * * *'   # 18:00 ET (winter) — Video 2
+    - cron: '0 1 * * *'    # 20:00 ET (winter) — Video 3
+
   workflow_dispatch:
     inputs:
       video_slot:
@@ -18,39 +19,67 @@ env:
   YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
   YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
 
 jobs:
   generate-short:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      - name: Install system deps
+
+      - name: 📦 Install system dependencies
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y ffmpeg fonts-dejavu-core imagemagick libmagickwand-dev
-      - name: Fix ImageMagick policy
-        run: sudo sed -i 's/rights="none"/rights="read|write"/g' /etc/ImageMagick-6/policy.xml || true
-      - name: Install Python deps
-        run: pip install --upgrade pip && pip install -r requirements.txt
-      - name: Load Whisper model
-        run: python -c "import whisper; whisper.load_model('base')"
-      - name: Determine slot
+          sudo apt-get install -y \
+            ffmpeg \
+            fonts-dejavu-core \
+            imagemagick \
+            libmagickwand-dev
+
+      - name: 🔧 Fix ImageMagick security policy
+        run: |
+          POLICY=/etc/ImageMagick-6/policy.xml
+          sudo sed -i 's/rights="none"/rights="read|write"/g' $POLICY || true
+          echo "Policy after fix:"
+          grep -i "rights" $POLICY | head -20 || true
+
+      - name: 📦 Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 🧠 Pre-download Whisper model
+        run: |
+          python -c "import whisper; whisper.load_model('base')"
+
+      - name: 🎬 Determine video slot
         id: slot
         run: |
           HOUR=$(date -u +%H)
-          if [ "$HOUR" = "13" ]; then echo "slot=1" >> $GITHUB_OUTPUT
-          elif [ "$HOUR" = "23" ]; then echo "slot=2" >> $GITHUB_OUTPUT
-          elif [ "$HOUR" = "01" ]; then echo "slot=3" >> $GITHUB_OUTPUT
-          else echo "slot=${{ github.event.inputs.video_slot || '1' }}" >> $GITHUB_OUTPUT
+          if [ "$HOUR" = "13" ]; then
+            echo "slot=1" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" = "23" ]; then
+            echo "slot=2" >> $GITHUB_OUTPUT
+          elif [ "$HOUR" = "01" ]; then
+            echo "slot=3" >> $GITHUB_OUTPUT
+          else
+            echo "slot=${{ github.event.inputs.video_slot || '1' }}" >> $GITHUB_OUTPUT
           fi
-      - name: Generate and upload
-        run: python scripts/generate_single.py --slot ${{ steps.slot.outputs.slot }}
-      - name: Upload logs
+
+      - name: 🚀 Generate and upload video
+        run: |
+          python scripts/generate_single.py --slot ${{ steps.slot.outputs.slot }}
+
+      - name: 📊 Upload logs as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
